@@ -14,7 +14,7 @@
 
 // set number of vertex per bezier curve
 // the more, the better quality of curve
-#define POINTS_PER_BEZIER 10000
+#define POINTS_PER_BEZIER 2056
     
 // equals -1 when no circle is dragging
 // otherwise equals the number of dragging circle
@@ -161,8 +161,13 @@ void drag(int x, int y){
         mouse.x = x;
         mouse.y = y;
         
-        dragCircle(&circles[isMoving], mouse);
-        glutPostRedisplay();
+	// move objects only if they are
+	// within the screen
+	if( (mouse.x <= WINDOW_WIDTH-1) && (mouse.x >= 0) &&
+	    (mouse.y <= WINDOW_HEIGHT-1) && (mouse.y >= 0) ){
+        	dragCircle(&circles[isMoving], mouse);
+        	glutPostRedisplay();
+	}
     }
 }
 
