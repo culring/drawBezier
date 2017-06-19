@@ -292,7 +292,7 @@ void mouseFunction(int button, int state, int x, int y){
             }
         }
         if(state == GLUT_UP){
-            if(clickedCircle == toErase){
+            if(clickedCircle != -1 && clickedCircle == toErase){
                 // if it is the last point in the path
                 // and there is more than one point
                 if(clickedCircle == numberOfPoints - 1 &&
