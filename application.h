@@ -20,6 +20,11 @@
 // otherwise equals the number of dragging circle
 int isMoving;
 
+// when pressed right mouse key
+// this variable is set to number of
+// point is clicked
+int toErase;
+
 // pixel array
 GLubyte pixelArray[WINDOW_WIDTH][WINDOW_HEIGHT][3];
 
@@ -261,15 +266,7 @@ void mouseFunction(int button, int state, int x, int y){
             }
             else{
                 if(numberOfPoints < 5){
-                    // if the are at least two points
-                    // and the mouse is closer to the first point
-                    if(numberOfPoints >= 2 &&
-                       distance(mouse, circles[0].center) < distance(mouse, circles[numberOfPoints-1].center)){
-                            addPointToBegin(mouse);
-                    }
-                    else{
-                        addPoint(mouse);
-                    }
+                    addPoint(mouse);
                         
                     glutPostRedisplay();
                 }
@@ -281,32 +278,39 @@ void mouseFunction(int button, int state, int x, int y){
     }
     
     if(button == GLUT_RIGHT_BUTTON){
+        int clickedCircle = checkIfAnyCircleIsClicked(mouse);
         if(state == GLUT_DOWN){
-                int clickedCircle = checkIfAnyCircleIsClicked(mouse);
-                if(clickedCircle != -1){
-                    // if it is the last point in the path
-                    // and there is more than one point
-                    if(clickedCircle == numberOfPoints - 1 &&
-                       numberOfPoints > 1){
-                        // move all the points from the end
-                        for(int i = clickedCircle; i < 5; ++i){
-                            circles[i].center = circles[clickedCircle-1].center;
-                        }
-                    }
-                    else{
-                        for(int i = clickedCircle; i < numberOfPoints - 1; ++i){
-                            circles[i] = circles[i+1];
-                        }
-                    }
-                    --numberOfPoints;
-                }
-                else{
-                    // change drawing bezier curve mode
-                    // (between asm and c function)
-                    isAsmDisabled = !isAsmDisabled;
-                }
+            if(clickedCircle != -1){
+                toErase = clickedCircle;
+            }
+            else{
+                // change drawing bezier curve mode
+                // (between asm and c function)
+                isAsmDisabled = !isAsmDisabled;
                 
                 glutPostRedisplay();
+            }
+        }
+        if(state == GLUT_UP){
+            if(clickedCircle == toErase){
+                // if it is the last point in the path
+                // and there is more than one point
+                if(clickedCircle == numberOfPoints - 1 &&
+                    numberOfPoints > 1){
+                    // move all the points from the end
+                    for(int i = clickedCircle; i < 5; ++i){
+                        circles[i].center = circles[clickedCircle-1].center;
+                    }
+                }
+                else{
+                    for(int i = clickedCircle; i < numberOfPoints - 1; ++i){
+                        circles[i] = circles[i+1];
+                    }
+                }
+                --numberOfPoints;
+            }
+            
+            glutPostRedisplay();
         }
     }
 }
@@ -324,6 +328,8 @@ void initApplication(int argc, char **argv){
     
     // set that no object is dragging
     isMoving = -1;
+    // set that no object is to toErase
+    toErase = -1;
     
     glutInit(&argc, argv);
     glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
