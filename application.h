@@ -175,7 +175,12 @@ void drag(int x, int y){
 	    (mouse.y <= WINDOW_HEIGHT-1) && (mouse.y >= 0) ){
                 // if it is the last circle, change as well
                 // coordiantes of the rest inivisible circles
-                for(int i = isMoving; i < 5; ++i){
+                if(isMoving == numberOfPoints - 1){
+                    for(int i = isMoving; i < 5; ++i){
+                        dragCircle(&circles[i], mouse);
+                    }
+                }
+                else{
                     dragCircle(&circles[isMoving], mouse);
                 }
                 
