@@ -23,8 +23,12 @@ int isMoving;
 // pixel array
 GLubyte pixelArray[WINDOW_WIDTH][WINDOW_HEIGHT][3];
 
-// texture id
-GLuint textureId;
+// number of points determining Bezier curve
+int numberOfPoints;
+
+// is bezier drawn by asm disabled
+// (and drawing by c started)
+int isAsmDisabled;
 
 // structure representing circle
 typedef struct{
@@ -43,7 +47,7 @@ void drawLineStrip(){
     glLineWidth(4);
     
     glBegin(GL_LINE_STRIP);
-    for(int i = 0; i < 5; ++i){
+    for(int i = 0; i < numberOfPoints; ++i){
         glVertex2f(circles[i].center.x, circles[i].center.y);
     }
     glEnd();
@@ -71,10 +75,10 @@ void drawCircle(Circle circle){
     glEnd();
 }
 
-void drawBezier(){
-    Point points[5];
+void drawBezier(float step){
+    Point points[numberOfPoints];
     
-    for(int i = 0; i < 5; ++i){
+    for(int i = 0; i < numberOfPoints; ++i){
         points[i] = circles[i].center;
     }
     
@@ -82,8 +86,8 @@ void drawBezier(){
     glColor3ub(0, 192, 192);
     glLineWidth(4);
     glBegin(GL_LINE_STRIP);
-    for(double t = 0; t <= 1; t += 0.01){
-        Point tmp = getBezierPoint(points, 5, t);
+    for(double t = 0; t <= 1; t += step){
+        Point tmp = getBezierPoint(points, numberOfPoints, t);
         glVertex2f(tmp.x, tmp.y);
     }
     glEnd();
@@ -120,17 +124,21 @@ void drawAsmBezier(float step){
 void display(){
     glClear(GL_COLOR_BUFFER_BIT);
     
-    // loads texture
-    drawAsmBezier((float)1/POINTS_PER_BEZIER);
-    
-    // draw lines between circles
-    drawLineStrip();
-
-    // draw bezier
-//     drawBezier();
+    if(numberOfPoints >= 2){
+        if(isAsmDisabled){
+            // draw Bezier curve using C function
+            drawBezier((float)1/POINTS_PER_BEZIER);
+        }
+        else{
+            // draw bezier with asm
+            drawAsmBezier((float)1/POINTS_PER_BEZIER);
+        }
+        // draw lines between circles
+        drawLineStrip();
+    }
     
     // draw circles
-    for(int i = 0; i < 5; ++i){
+    for(int i = 0; i < numberOfPoints; ++i){
         drawCircle(circles[i]);
     }
     
@@ -165,7 +173,14 @@ void drag(int x, int y){
 	// within the screen
 	if( (mouse.x <= WINDOW_WIDTH-1) && (mouse.x >= 0) &&
 	    (mouse.y <= WINDOW_HEIGHT-1) && (mouse.y >= 0) ){
-        	dragCircle(&circles[isMoving], mouse);
+                // if it is the last circle, change as well
+                // coordiantes of the rest inivisible circles
+                for(int i = isMoving; i < 5; ++i){
+                    dragCircle(&circles[isMoving], mouse);
+                }
+                
+                // set flag that screen need to be
+                // redisplayed
         	glutPostRedisplay();
 	}
     }
@@ -179,7 +194,7 @@ int checkIfAnyCircleIsClicked(Point mouse){
     // radius of actual circle
     double radius;
     
-    for(int i = 0; i < 5; ++i){
+    for(int i = 0; i < numberOfPoints; ++i){
         // get radius of actual circle
         radius = circles[i].radius;
         // get coordinates of actual circle
@@ -197,20 +212,96 @@ int checkIfAnyCircleIsClicked(Point mouse){
     return -1;
 }
 
+void addPoint(Point mouse){
+    for(int i = numberOfPoints; i < 5; ++i){
+        circles[i].center = mouse;
+    }
+    ++numberOfPoints;
+}
+
+void addPointByCoords(int x, int y){
+    for(int i = numberOfPoints; i < 5; ++i){
+        circles[i].center.x = x;
+        circles[i].center.y = y;
+    }
+    ++numberOfPoints;
+}
+
+void addPointToBegin(Point mouse){
+    for(int i = numberOfPoints; i >= 1; --i){
+        circles[i].center = circles[i-1].center;
+    }
+    circles[0].center = mouse;
+    ++numberOfPoints;
+}
+
+float distance(Point a, Point b){
+    return sqrt( (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y) );
+}
+
 // marks which circle is dragging
 // by setting global 'isMoving' variable
 // if none - sets -1
 void mouseFunction(int button, int state, int x, int y){
+    Point mouse;
+    mouse.x = x;
+    mouse.y = y;
+    
     if(button == GLUT_LEFT_BUTTON){
         if(state == GLUT_DOWN){
-            Point mouse;
-            mouse.x = x;
-            mouse.y = y;
+            int clickedCircle = checkIfAnyCircleIsClicked(mouse);
             
-            isMoving = checkIfAnyCircleIsClicked(mouse);
+            if(clickedCircle != -1){
+                isMoving = clickedCircle;
+            }
+            else{
+                if(numberOfPoints < 5){
+                    // if the are at least two points
+                    // and the mouse is closer to the first point
+                    if(numberOfPoints >= 2 &&
+                       distance(mouse, circles[0].center) < distance(mouse, circles[numberOfPoints-1].center)){
+                            addPointToBegin(mouse);
+                    }
+                    else{
+                        addPoint(mouse);
+                    }
+                        
+                    glutPostRedisplay();
+                }
+            }
         }
         else if(state == GLUT_UP){
             isMoving = -1;
+        }
+    }
+    
+    if(button == GLUT_RIGHT_BUTTON){
+        if(state == GLUT_DOWN){
+                int clickedCircle = checkIfAnyCircleIsClicked(mouse);
+                if(clickedCircle != -1){
+                    // if it is the last point in the path
+                    // and there is more than one point
+                    if(clickedCircle == numberOfPoints - 1 &&
+                       numberOfPoints > 1){
+                        // move all the points from the end
+                        for(int i = clickedCircle; i < 5; ++i){
+                            circles[i].center = circles[clickedCircle-1].center;
+                        }
+                    }
+                    else{
+                        for(int i = clickedCircle; i < numberOfPoints - 1; ++i){
+                            circles[i] = circles[i+1];
+                        }
+                    }
+                    --numberOfPoints;
+                }
+                else{
+                    // change drawing bezier curve mode
+                    // (between asm and c function)
+                    isAsmDisabled = !isAsmDisabled;
+                }
+                
+                glutPostRedisplay();
         }
     }
 }
@@ -220,17 +311,11 @@ void initApplication(int argc, char **argv){
         circles[i].radius = 7;
     }
     
-    circles[0].center.x = 256;
-    circles[0].center.y = 156;
-    circles[1].center.x = 161;
-    circles[1].center.y = 225;
-    circles[2].center.x = 197;
-    circles[2].center.y = 337;
-    circles[3].center.x = 315;
-    circles[3].center.y = 337;
-    circles[4].center.x = 351;
-    circles[4].center.y = 225;
-        
+    addPointByCoords(256, 128);
+    addPointByCoords(134, 216);
+    addPointByCoords(181, 360);
+    addPointByCoords(331, 360);
+    addPointByCoords(378, 216);
     
     // set that no object is dragging
     isMoving = -1;
