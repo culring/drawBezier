@@ -1,6 +1,10 @@
 # drawBezier
 <b>Draw Bezier curves.</b> 
 
-The core functionality of drawing curves is written in assembler. Application also uses openGL and GLUT for displaying.
+Draw Bezier curves using up to 5 control points. Switch between the pure assembly implementation (dedicated to 5-point curves) and the C code (up to 5 control points).
 
-![Cat](bezier.png)
+The core functionality of computing Bezier curves is written in x86 assembly language. For drawing and UI purposes application uses openGL and GLUT.
+
+<p align="center">
+  <img src="bezier.png">
+</p>
